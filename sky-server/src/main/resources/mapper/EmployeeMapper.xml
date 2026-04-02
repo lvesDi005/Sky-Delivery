@@ -5,7 +5,7 @@
     <select id="pageQuery" resultType="com.sky.entity.Employee">
     select * from employee
     <where>
-        <if test =" name != null and name != ''">
+        <if test ="name != null and name != ''">
             and name like concat('%',#{name},'%')
         </if>
     </where>
@@ -20,7 +20,7 @@
                 username = #{username},
             </if>
             <if test="name != null">
-                naem = #{name},
+                name = #{name},
             </if>
             <if test="password != null">
                 password = #{password},
