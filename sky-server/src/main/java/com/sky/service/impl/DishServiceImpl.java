@@ -1,12 +1,14 @@
 package com.sky.service.impl;
 
 import com.github.pagehelper.PageHelper;
+import com.sky.annotation.AutoFill;
 import com.sky.constant.MessageConstant;
 import com.sky.constant.StatusConstant;
 import com.sky.dto.DishDTO;
 import com.sky.dto.DishPageQueryDTO;
 import com.sky.entity.Dish;
 import com.sky.entity.DishFlavor;
+import com.sky.enumeration.OperationType;
 import com.sky.exception.DeletionNotAllowedException;
 import com.sky.mapper.DishFlavorMapper;
 import com.sky.mapper.DishMapper;
@@ -14,7 +16,9 @@ import com.sky.mapper.SetmealDishMapper;
 import com.sky.result.PageResult;
 import com.sky.service.DishService;
 import com.sky.vo.DishVO;
+import com.sun.net.httpserver.Authenticator;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.xmlbeans.impl.xb.xsdschema.LocalSimpleType;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import com.github.pagehelper.Page;
@@ -123,4 +127,50 @@ public class DishServiceImpl implements DishService {
 
     }
 
+    /**
+     * 根据id查询菜品和对应的口味数据
+     *
+     * @param id
+     * @return
+     */
+    @Override
+    public DishVO getByIdWithFlavor(Long id) {
+        //根据id查询菜品数据
+        Dish dish = dishMapper.getById(id);
+
+        //根据id查询口味数据
+        List<DishFlavor> dishFlavors = dishFlavorMapper.getByDishId(id);
+
+        //组装VO数据
+        DishVO dishVO = new DishVO();
+        BeanUtils.copyProperties(dish, dishVO);
+        dishVO.setFlavors(dishFlavors);
+
+        return dishVO;
+    }
+
+    /**
+     * 修改菜品和口味数据
+     *
+     * @param dishDTO
+     */
+    @Override
+    @Transactional
+    public void updateWithFlavor(DishDTO dishDTO) {
+        Dish dish = new Dish();
+        BeanUtils.copyProperties(dishDTO, dish);
+        //修改菜品表数据
+        dishMapper.update(dish);
+
+        //删除原有的口味数据
+        dishFlavorMapper.deleteByDishId(dishDTO.getId());
+
+        //插入新的口味数据
+        List<DishFlavor> flavors = dishDTO.getFlavors();
+        if (flavors != null && flavors.size() > 0) {
+            flavors.forEach(dishFlavor -> dishFlavor.setDishId(dishDTO.getId()));
+            //批量插入
+            dishFlavorMapper.insertBatch(flavors);
+        }
+    }
 }
