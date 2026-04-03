@@ -22,6 +22,7 @@ public class OssConfiguration {
         return new AliOssUtil(aliOssProperties.getEndpoint(),
                 aliOssProperties.getAccessKeyId(),
                 aliOssProperties.getAccessKeySecret(),
-                aliOssProperties.getBucketName());
+                aliOssProperties.getBucketName(),
+                aliOssProperties.getDirName());
     }
 }
