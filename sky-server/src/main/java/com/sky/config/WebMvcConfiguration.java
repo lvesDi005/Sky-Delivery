@@ -1,6 +1,7 @@
 package com.sky.config;
 
 import com.sky.interceptor.JwtTokenAdminInterceptor;
+import com.sky.interceptor.JwtTokenUserInterceptor;
 import com.sky.json.JacksonObjectMapper;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -20,9 +21,6 @@ import springfox.documentation.spring.web.plugins.Docket;
 
 import java.util.List;
 
-/**
- * 配置类，注册web层相关组件
- */
 @Configuration
 @Slf4j
 public class WebMvcConfiguration extends WebMvcConfigurationSupport {
@@ -30,22 +28,21 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
     @Autowired
     private JwtTokenAdminInterceptor jwtTokenAdminInterceptor;
 
-    /**
-     * 注册自定义拦截器
-     *
-     * @param registry
-     */
+    @Autowired
+    private JwtTokenUserInterceptor jwtTokenUserInterceptor;
+
     protected void addInterceptors(InterceptorRegistry registry) {
         log.info("开始注册自定义拦截器...");
         registry.addInterceptor(jwtTokenAdminInterceptor)
                 .addPathPatterns("/admin/**")
                 .excludePathPatterns("/admin/employee/login");
+
+        registry.addInterceptor(jwtTokenUserInterceptor)
+                .addPathPatterns("/user/**")
+                .excludePathPatterns("/user/user/login")
+                .excludePathPatterns("/user/shop/status");
     }
 
-    /**
-     * 通过knife4j生成接口文档
-     * @return
-     */
     @Bean
     public Docket docket1() {
         ApiInfo apiInfo = new ApiInfoBuilder()
@@ -80,27 +77,15 @@ public class WebMvcConfiguration extends WebMvcConfigurationSupport {
         return docket2;
     }
 
-    /**
-     * 设置静态资源映射
-     * @param registry
-     */
     protected void addResourceHandlers(ResourceHandlerRegistry registry) {
         registry.addResourceHandler("/doc.html").addResourceLocations("classpath:/META-INF/resources/");
         registry.addResourceHandler("/webjars/**").addResourceLocations("classpath:/META-INF/resources/webjars/");
     }
 
-    /**
-     * 扩展消息转换器，实现json转换时支持Long类型
-     * @param converters
-     */
-    //@Override 可写可不写
     protected void extendMessageConverters(List<HttpMessageConverter<?>> converters) {
         log.info("扩展消息转换器...");
-        //创建消息转换器对象
         MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
-        //设置对象转换器，底层使用Jackson将Java对象转为json
         converter.setObjectMapper(new JacksonObjectMapper());
-        //将上面的消息转换器对象追加到mvc框架的转换器集合中
         converters.add(0,converter);
     }
 }
