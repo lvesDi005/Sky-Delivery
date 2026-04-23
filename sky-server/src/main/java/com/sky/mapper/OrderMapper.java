@@ -40,4 +40,15 @@ public interface OrderMapper {
 
     @Select("select count(*) from orders where status = #{status}")
     Integer countByStatus(Integer status);
+
+    /**
+     * 查询订单状态和下单时间
+     * @param status
+     * @param orderTime
+     * @return
+     */
+    @Select("select * from orders where status = #{status} and order_time < #{orderTime}")
+    List<Orders> getByStatusAndOrderTime(Integer status, LocalDateTime orderTime);
+
+    Double sumByMap(Map map);
 }
