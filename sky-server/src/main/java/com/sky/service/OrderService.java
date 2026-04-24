@@ -4,6 +4,8 @@ import com.sky.dto.*;
 import com.sky.result.PageResult;
 import com.sky.vo.*;
 
+import java.time.LocalDate;
+
 public interface OrderService {
 
     /**
@@ -49,4 +51,6 @@ public interface OrderService {
     void complete(Long id);
 
     void reminder(Long id);
+
+    OrderReportVO getOrderStatistics(LocalDate begin, LocalDate end);
 }

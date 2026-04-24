@@ -18,12 +18,10 @@ import com.sky.result.PageResult;
 import com.sky.service.OrderService;
 import com.sky.utils.HttpClientUtil;
 import com.sky.utils.WeChatPayUtil;
-import com.sky.vo.OrderPaymentVO;
-import com.sky.vo.OrderStatisticsVO;
-import com.sky.vo.OrderSubmitVO;
-import com.sky.vo.OrderVO;
+import com.sky.vo.*;
 import com.sky.websocket.WebSocketServer;
 import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 import org.springframework.beans.BeanUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -32,7 +30,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
 
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.*;
 import java.util.stream.Collectors;
 
@@ -285,7 +285,28 @@ public class OrderServiceImpl implements OrderService {
 
         PageHelper.startPage(ordersPageQueryDTO.getPage(), ordersPageQueryDTO.getPageSize());
         Page<Orders> page = orderMapper.conditionSearch(ordersPageQueryDTO);
-        return new PageResult(page.getTotal(), page.getResult());
+
+        List<OrderVO> orderVOList = new ArrayList<>();
+        if (page != null && page.getResult() != null && page.getResult().size() > 0) {
+            for (Orders orders : page) {
+                OrderVO orderVO = new OrderVO();
+                BeanUtils.copyProperties(orders, orderVO);
+
+                // 查询订单详情并拼接菜品字符串
+                String orderDishes = getOrderDishesStr(orders.getId());
+                orderVO.setOrderDishes(orderDishes);
+
+                orderVOList.add(orderVO);
+            }
+        }
+        return new PageResult(page.getTotal(), orderVOList);
+    }
+
+    private String getOrderDishesStr(Long orderId) {
+        List<OrderDetail> orderDetailList = orderDetailMapper.getByOrderId(orderId);
+        return orderDetailList.stream()
+                .map(detail -> detail.getName() + "*" + detail.getNumber())
+                .collect(Collectors.joining());
     }
 
     @Override
@@ -375,6 +396,50 @@ public class OrderServiceImpl implements OrderService {
 
         String json = JSON.toJSONString(map);
         webSocketServer.sendToAllClient(json);
+    }
+
+    @Override
+    public OrderReportVO getOrderStatistics(LocalDate begin, LocalDate end) {
+        List<LocalDate> dataList = new ArrayList<>();
+        dataList.add(begin);
+        while (!begin.equals(end)) {
+            begin = begin.plusDays(1);
+            dataList.add(begin);
+        }
+
+        List<Integer> orderCountList = new ArrayList<>();
+        List<Integer> validOrderCountList = new ArrayList<>();
+        Integer totalOrderCount = 0;
+        Integer validOrderCount = 0;
+
+        for (LocalDate date : dataList) {
+            LocalDateTime beginTime = LocalDateTime.of(date, LocalTime.MIN);
+            LocalDateTime endTime = LocalDateTime.of(date, LocalTime.MAX);
+
+            Map<String, Object> map = new HashMap<>();
+            map.put("begin", beginTime);
+            map.put("end", endTime);
+
+            Integer orderCount = orderMapper.countByMap(map);
+            orderCountList.add(orderCount);
+            totalOrderCount += orderCount;
+
+            map.put("status", Orders.COMPLETED);
+            Integer validOrder = orderMapper.countByMap(map);
+            validOrderCountList.add(validOrder);
+            validOrderCount += validOrder;
+        }
+
+        Double orderCompletionRate = totalOrderCount == 0 ? 0.0 : (double) validOrderCount / totalOrderCount;
+
+        return OrderReportVO.builder()
+                .dateList(StringUtils.join(dataList, ","))
+                .orderCountList(StringUtils.join(orderCountList, ","))
+                .validOrderCountList(StringUtils.join(validOrderCountList, ","))
+                .totalOrderCount(totalOrderCount)
+                .validOrderCount(validOrderCount)
+                .orderCompletionRate(orderCompletionRate)
+                .build();
     }
 
     /**
